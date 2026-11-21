@@ -1,23 +1,42 @@
+import * as lib from './lib.js';
+
 const $ = (id) => document.getElementById(id);
 const usd = (n) => (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const usdShort = (n) => '$' + n.toLocaleString('en-US', { maximumFractionDigits: n % 1 ? 2 : 0 });
 const fmtDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const localToday = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const APIFY_KEY = 'bankroll:apify';
+const REFRESH_MS = 15 * 60 * 1000;
+
+let data = lib.loadState(localStorage.getItem(lib.STORAGE_KEY));
+let apify = JSON.parse(localStorage.getItem(APIFY_KEY) || 'null') || { actors: [], refreshedAt: null, error: null };
 let state = null;
 
-async function call(path, method = 'GET', body) {
-  const res = await fetch(`api/${path}`, {
-    method,
-    credentials: 'include',
-    headers: { 'X-Local-Date': localToday(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  state = data;
+function save() {
+  localStorage.setItem(lib.STORAGE_KEY, JSON.stringify(data));
+  if (data.entries.length) navigator.storage?.persist?.().catch(() => {});
+}
+
+function update(fn) {
+  fn(data);
+  save();
   render();
-  return data;
+}
+
+function render() {
+  state = { ...data, summary: lib.summarize(data, new Date(), localToday()), apify };
+  draw();
+}
+
+async function refreshApify() {
+  try {
+    apify = { ...(await lib.fetchActors()), refreshedAt: new Date().toISOString(), error: null };
+    localStorage.setItem(APIFY_KEY, JSON.stringify(apify));
+  } catch (err) {
+    apify = { ...apify, error: err.message };
+  }
+  render();
 }
 
 function ago(iso) {
@@ -29,7 +48,7 @@ function ago(iso) {
   return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
 }
 
-function render() {
+function draw() {
   const { goal, summary, streams, entries, apify } = state;
   $('goal-name').textContent = goal.name;
   $('total').textContent = usdShort(summary.totalUsd);
@@ -89,59 +108,80 @@ function showError(err) {
   el.hidden = false;
 }
 
-$('entry-form').addEventListener('submit', async (ev) => {
+$('entry-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
   $('form-error').hidden = true;
   const f = new FormData(ev.target);
   try {
-    await call('entries', 'POST', {
+    update((d) => lib.addEntry(d, {
       amountUsd: f.get('amountUsd'), streamId: f.get('streamId'), date: f.get('date') || undefined,
       note: f.get('note'), status: f.get('cashed') ? 'cashed' : 'earned',
-    });
+    }, localToday()));
     ev.target.reset();
     ev.target.date.value = localToday();
   } catch (err) { showError(err); }
 });
 
-document.addEventListener('click', async (ev) => {
+document.addEventListener('click', (ev) => {
   const t = ev.target.closest('button');
   if (!t) return;
   try {
-    if (t.dataset.del && confirm('Delete this entry?')) await call(`entries/${t.dataset.del}`, 'DELETE');
-    if (t.dataset.toggle) {
-      const e = state.entries.find((x) => x.id === t.dataset.toggle);
-      await call(`entries/${e.id}`, 'PATCH', { status: e.status === 'cashed' ? 'earned' : 'cashed' });
-    }
-    if (t.dataset.delStream && confirm('Remove this stream?')) await call(`streams/${t.dataset.delStream}`, 'DELETE');
+    if (t.dataset.del && confirm('Delete this entry?')) update((d) => lib.removeEntry(d, t.dataset.del));
+    if (t.dataset.toggle) update((d) => lib.toggleCashed(d, t.dataset.toggle));
+    if (t.dataset.delStream && confirm('Remove this stream?')) update((d) => lib.removeStream(d, t.dataset.delStream));
   } catch (err) { alert(err.message); }
 });
 
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
-  try { await call('refresh', 'POST'); } catch (err) { alert(err.message); }
+  await refreshApify();
   $('refresh').disabled = false;
 });
 
 $('edit-goal').addEventListener('click', () => {
   const f = $('goal-form');
-  f.name.value = state.goal.name;
-  f.amountUsd.value = state.goal.amountUsd;
-  f.targetDate.value = state.goal.targetDate || '';
+  f.name.value = data.goal.name;
+  f.amountUsd.value = data.goal.amountUsd;
+  f.targetDate.value = data.goal.targetDate || '';
   $('goal-dialog').showModal();
 });
-$('goal-dialog').addEventListener('close', async () => {
+$('goal-dialog').addEventListener('close', () => {
   if ($('goal-dialog').returnValue !== 'save') return;
   const f = $('goal-form');
-  try { await call('goal', 'PUT', { name: f.name.value, amountUsd: f.amountUsd.value, targetDate: f.targetDate.value || null }); } catch (err) { alert(err.message); }
+  try { update((d) => lib.setGoal(d, { name: f.name.value, amountUsd: f.amountUsd.value, targetDate: f.targetDate.value || null })); } catch (err) { alert(err.message); }
 });
 
 $('add-stream').addEventListener('click', () => { $('stream-form').reset(); $('stream-dialog').showModal(); });
-$('stream-dialog').addEventListener('close', async () => {
+$('stream-dialog').addEventListener('close', () => {
   if ($('stream-dialog').returnValue !== 'save') return;
   const f = $('stream-form');
-  try { await call('streams', 'POST', { name: f.name.value, payout: f.payout.value }); } catch (err) { alert(err.message); }
+  try { update((d) => lib.addStream(d, { name: f.name.value, payout: f.payout.value })); } catch (err) { alert(err.message); }
 });
 
+$('export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `bankroll-backup-${localToday()}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('import').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', async (ev) => {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  try {
+    const next = lib.loadState(await file.text());
+    if (!confirm(`Replace what's on this device with ${next.entries.length} entries from the backup?`)) return;
+    update((d) => Object.assign(d, next));
+  } catch (err) { alert(`Couldn't import: ${err.message}`); }
+});
+
+window.addEventListener('storage', (ev) => { if (ev.key === lib.STORAGE_KEY) { data = lib.loadState(ev.newValue); render(); } });
+
 $('entry-form').date.value = localToday();
-call('data').catch((err) => { document.querySelector('main').insertAdjacentHTML('afterbegin', `<p class="error">${esc(err.message)}</p>`); });
-setInterval(() => call('data').catch(() => {}), 60000);
+render();
+if (!apify.refreshedAt || Date.now() - Date.parse(apify.refreshedAt) > REFRESH_MS) refreshApify();
+setInterval(refreshApify, REFRESH_MS);
+setInterval(render, 60000);

@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "Tracks every income stream and progress to the Xbox + GTA 6 goal",
-  "main": "server.js",
+  "main": "docs/index.html",
   "scripts": {
-    "start": "node server.js",
+    "start": "node dev.js",
     "test": "node --test"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
