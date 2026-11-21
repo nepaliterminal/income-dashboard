@@ -95,16 +95,17 @@ class Store {
 function summarize(state, now = new Date()) {
   const total = state.entries.reduce((sum, e) => sum + e.amountUsd, 0);
   const cashed = state.entries.filter((e) => e.status === 'cashed').reduce((s, e) => s + e.amountUsd, 0);
-  const since = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
-  const last30 = state.entries.filter((e) => e.date >= since).reduce((s, e) => s + e.amountUsd, 0);
+  const today = now.toISOString().slice(0, 10);
+  const since = new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);
+  const last30 = state.entries.filter((e) => e.date >= since && e.date <= today).reduce((s, e) => s + e.amountUsd, 0);
   const byStream = Object.fromEntries(state.streams.map((s) => [s.id, 0]));
   for (const e of state.entries) byStream[e.streamId] = (byStream[e.streamId] || 0) + e.amountUsd;
   const goal = state.goal.amountUsd;
   const remaining = Math.max(0, goal - total);
-  const perDay = last30 / 30;
+  const perDay = round2(last30) / 30;
   let etaDate = null;
-  if (remaining === 0) etaDate = now.toISOString().slice(0, 10);
-  else if (perDay > 0) etaDate = new Date(now.getTime() + (remaining / perDay) * 86400000).toISOString().slice(0, 10);
+  if (remaining === 0) etaDate = today;
+  else if (perDay > 0 && remaining / perDay < MAX_ETA_DAYS) etaDate = new Date(now.getTime() + (remaining / perDay) * 86400000).toISOString().slice(0, 10);
   let neededPerWeek = null;
   if (state.goal.targetDate && remaining > 0) {
     const days = (new Date(`${state.goal.targetDate}T00:00:00Z`) - now) / 86400000;
@@ -124,5 +125,6 @@ function summarize(state, now = new Date()) {
 }
 
 const round2 = (n) => Math.round(n * 100) / 100;
+const MAX_ETA_DAYS = 365 * 100;
 
 module.exports = { Store, summarize, DEFAULT_STATE };

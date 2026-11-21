@@ -42,3 +42,18 @@ test('pay-per-event pricing reads per-1k price', () => {
   const p = priceOf([{ pricingModel: 'PAY_PER_EVENT', pricingPerEvent: { actorChargeEvents: { filing: { eventTitle: 'Filing saved', eventPriceUsd: 0.0003 } } } }]);
   assert.equal(p.perThousandUsd, 0.3);
 });
+
+test('near-zero net income gives no ETA instead of throwing', () => {
+  const s = tmpStore();
+  for (const a of [0.1, 0.2, -0.3]) s.addEntry({ streamId: 'apify', amountUsd: a, date: '2026-11-20' });
+  assert.equal(summarize(s.state, new Date('2026-11-21T12:00:00Z')).etaDate, null);
+});
+
+test('last 30 days excludes future and 30-day-old entries', () => {
+  const s = tmpStore();
+  s.addEntry({ streamId: 'apify', amountUsd: 10, date: '2026-11-21' });
+  s.addEntry({ streamId: 'apify', amountUsd: 20, date: '2026-10-23' });
+  s.addEntry({ streamId: 'apify', amountUsd: 40, date: '2026-10-22' });
+  s.addEntry({ streamId: 'apify', amountUsd: 80, date: '2026-11-25' });
+  assert.equal(summarize(s.state, new Date('2026-11-21T12:00:00Z')).last30Usd, 30);
+});
