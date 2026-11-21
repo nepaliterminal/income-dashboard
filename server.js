@@ -34,7 +34,10 @@ function readBody(req) {
     let data = '';
     req.on('data', (c) => {
       data += c;
-      if (data.length > 1e5) reject(new Error('Body too large'));
+      if (data.length > 1e5) {
+        reject(new Error('Body too large'));
+        req.destroy();
+      }
     });
     req.on('end', () => {
       try { resolve(data ? JSON.parse(data) : {}); } catch { reject(new Error('Invalid JSON')); }
