@@ -57,3 +57,11 @@ test('last 30 days excludes future and 30-day-old entries', () => {
   s.addEntry({ streamId: 'apify', amountUsd: 80, date: '2026-11-25' });
   assert.equal(summarize(s.state, new Date('2026-11-21T12:00:00Z')).last30Usd, 30);
 });
+
+test('last 30 days uses the caller-supplied local date', () => {
+  const s = tmpStore();
+  s.addEntry({ streamId: 'apify', amountUsd: 15, date: '2026-11-22' });
+  const now = new Date('2026-11-21T20:00:00Z');
+  assert.equal(summarize(s.state, now).last30Usd, 0);
+  assert.equal(summarize(s.state, now, '2026-11-22').last30Usd, 15);
+});

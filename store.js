@@ -92,11 +92,10 @@ class Store {
   }
 }
 
-function summarize(state, now = new Date()) {
+function summarize(state, now = new Date(), today = now.toISOString().slice(0, 10)) {
   const total = state.entries.reduce((sum, e) => sum + e.amountUsd, 0);
   const cashed = state.entries.filter((e) => e.status === 'cashed').reduce((s, e) => s + e.amountUsd, 0);
-  const today = now.toISOString().slice(0, 10);
-  const since = new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);
+  const since = new Date(Date.parse(`${today}T00:00:00Z`) - 29 * 86400000).toISOString().slice(0, 10);
   const last30 = state.entries.filter((e) => e.date >= since && e.date <= today).reduce((s, e) => s + e.amountUsd, 0);
   const byStream = Object.fromEntries(state.streams.map((s) => [s.id, 0]));
   for (const e of state.entries) byStream[e.streamId] = (byStream[e.streamId] || 0) + e.amountUsd;

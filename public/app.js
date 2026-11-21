@@ -10,7 +10,7 @@ async function call(path, method = 'GET', body) {
   const res = await fetch(`api/${path}`, {
     method,
     credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers: { 'X-Local-Date': localToday(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));

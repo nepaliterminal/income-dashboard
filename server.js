@@ -45,15 +45,17 @@ function readBody(req) {
   });
 }
 
-function snapshot() {
-  return { ...store.state, summary: summarize(store.state), apify };
+function snapshot(req) {
+  const local = req.headers['x-local-date'];
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(local || '') && !isNaN(Date.parse(local)) ? local : undefined;
+  return { ...store.state, summary: summarize(store.state, new Date(), today), apify };
 }
 
 async function api(req, res, url) {
   const parts = url.pathname.split('/').filter(Boolean).slice(1);
   const [resource, id] = parts;
-  if (req.method === 'GET' && resource === 'data') return send(res, 200, snapshot());
-  if (req.method === 'POST' && resource === 'refresh') { await refreshApify(); return send(res, 200, snapshot()); }
+  if (req.method === 'GET' && resource === 'data') return send(res, 200, snapshot(req));
+  if (req.method === 'POST' && resource === 'refresh') { await refreshApify(); return send(res, 200, snapshot(req)); }
   const body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
   if (resource === 'goal' && req.method === 'PUT') store.setGoal(body);
   else if (resource === 'streams' && req.method === 'POST') store.addStream(body);
@@ -62,7 +64,7 @@ async function api(req, res, url) {
   else if (resource === 'entries' && req.method === 'PATCH' && id) store.updateEntry(id, body);
   else if (resource === 'entries' && req.method === 'DELETE' && id) store.removeEntry(id);
   else return send(res, 404, { error: 'Not found' });
-  return send(res, 200, snapshot());
+  return send(res, 200, snapshot(req));
 }
 
 function serveStatic(res, pathname) {
