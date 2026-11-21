@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 const usd = (n) => (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const usdShort = (n) => '$' + n.toLocaleString('en-US', { maximumFractionDigits: n % 1 ? 2 : 0 });
 const fmtDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const localToday = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let state = null;
 
@@ -98,7 +99,7 @@ $('entry-form').addEventListener('submit', async (ev) => {
       note: f.get('note'), status: f.get('cashed') ? 'cashed' : 'earned',
     });
     ev.target.reset();
-    ev.target.date.valueAsDate = new Date();
+    ev.target.date.value = localToday();
   } catch (err) { showError(err); }
 });
 
@@ -141,6 +142,6 @@ $('stream-dialog').addEventListener('close', async () => {
   try { await call('streams', 'POST', { name: f.name.value, payout: f.payout.value }); } catch (err) { alert(err.message); }
 });
 
-$('entry-form').date.valueAsDate = new Date();
+$('entry-form').date.value = localToday();
 call('data').catch((err) => { document.querySelector('main').insertAdjacentHTML('afterbegin', `<p class="error">${esc(err.message)}</p>`); });
 setInterval(() => call('data').catch(() => {}), 60000);
