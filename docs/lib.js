@@ -17,16 +17,44 @@ const MAX_ETA_DAYS = 365 * 100;
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(Date.parse(d));
 const newId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
 
+const ID = /^[\w-]{1,80}$/;
+const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+// Backups come from files, so every field is checked and rebuilt before it can be saved or rendered.
 export function loadState(raw) {
   const base = structuredClone(DEFAULT_STATE);
   if (!raw) return base;
   const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  if (!data || typeof data !== 'object' || !data.goal || !Array.isArray(data.streams) || !Array.isArray(data.entries)) {
-    throw new Error('Not a Bankroll backup');
-  }
-  const state = { goal: { ...base.goal, ...data.goal }, streams: data.streams, entries: data.entries };
-  if (!state.streams.some((s) => s.kind === 'apify')) state.streams.unshift(base.streams[0]);
-  return state;
+  const bad = (why) => { throw new Error(`Not a Bankroll backup (${why})`); };
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  if (!isObj(data) || !isObj(data.goal) || !Array.isArray(data.streams) || !Array.isArray(data.entries)) bad('missing goal, streams or entries');
+
+  const g = data.goal;
+  const amount = 'amountUsd' in g ? Number(g.amountUsd) : base.goal.amountUsd;
+  if (!(amount > 0) || !Number.isFinite(amount)) bad('goal amount');
+  const targetDate = !('targetDate' in g) ? base.goal.targetDate : g.targetDate === null ? null : g.targetDate;
+  if (targetDate !== null && !isDay(targetDate)) bad('goal date');
+  const goal = { name: text(g.name, 80) || base.goal.name, amountUsd: round2(amount), targetDate };
+
+  const streams = data.streams.map((s) => {
+    if (!isObj(s) || typeof s.id !== 'string' || !ID.test(s.id) || !['apify', 'manual'].includes(s.kind)) bad('stream');
+    return { id: s.id, name: text(s.name, 60) || s.id, kind: s.kind, payout: text(s.payout, 80) };
+  });
+  if (!streams.some((s) => s.kind === 'apify')) streams.unshift(base.streams[0]);
+  const streamIds = new Set(streams.map((s) => s.id));
+  if (streamIds.size !== streams.length) bad('duplicate stream');
+
+  const entries = data.entries.map((e) => {
+    if (!isObj(e) || typeof e.id !== 'string' || !ID.test(e.id) || !streamIds.has(e.streamId)) bad('entry');
+    const amt = Number(e.amountUsd);
+    if (typeof e.amountUsd !== 'number' || !Number.isFinite(amt) || amt === 0 || !isDay(e.date)) bad('entry amount or date');
+    return {
+      id: e.id, streamId: e.streamId, amountUsd: round2(amt), date: e.date, note: text(e.note, 140),
+      status: e.status === 'cashed' ? 'cashed' : 'earned', createdAt: text(e.createdAt, 40),
+    };
+  });
+  if (new Set(entries.map((e) => e.id)).size !== entries.length) bad('duplicate entry');
+  return { goal, streams, entries };
 }
 
 export function setGoal(state, { name, amountUsd, targetDate }) {

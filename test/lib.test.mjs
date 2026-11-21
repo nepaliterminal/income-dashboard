@@ -74,3 +74,18 @@ test('fetchActors reads public Actors without a token and marks 404s as not publ
   assert.deepEqual(actors.map((a) => [a.name, a.isPublic, a.users30Days]), [['a', true, 3], ['b', false, 0]]);
   assert.ok(calls.every((u) => !u.includes('token')));
 });
+
+test('loadState rejects malformed backups and rebuilds valid ones', () => {
+  for (const bad of [
+    '{"goal":{},"streams":[],"entries":[null]}',
+    '{"goal":{},"streams":[],"entries":[{"id":"<img src=x onerror=alert(1)>","streamId":"apify","amountUsd":5,"date":"2026-11-01"}]}',
+    '{"goal":{},"streams":[],"entries":[{"id":"a","streamId":"nope","amountUsd":5,"date":"2026-11-01"}]}',
+    '{"goal":{},"streams":[],"entries":[{"id":"a","streamId":"apify","amountUsd":"5","date":"2026-11-01"}]}',
+    '{"goal":{},"streams":[{"id":"x\\" onclick=\\"y","kind":"manual"}],"entries":[]}',
+    '{"goal":{"amountUsd":-1},"streams":[],"entries":[]}',
+  ]) assert.throws(() => lib.loadState(bad), /Not a Bankroll backup/, bad);
+  const s = lib.loadState('{"goal":{"name":"PS5"},"streams":[{"id":"gigs","name":"Gigs","kind":"manual","extra":1}],"entries":[{"id":"a","streamId":"gigs","amountUsd":5,"date":"2026-11-01","x":"y"}]}');
+  assert.equal(s.goal.amountUsd, 650);
+  assert.deepEqual(s.streams.map((x) => x.id), ['apify', 'gigs']);
+  assert.deepEqual(Object.keys(s.entries[0]).sort(), ['amountUsd', 'createdAt', 'date', 'id', 'note', 'status', 'streamId']);
+});

@@ -9,19 +9,38 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const APIFY_KEY = 'bankroll:apify';
 const REFRESH_MS = 15 * 60 * 1000;
 
-let data = lib.loadState(localStorage.getItem(lib.STORAGE_KEY));
+const CORRUPT_KEY = 'bankroll:v1:unreadable';
+function readStored() {
+  const raw = localStorage.getItem(lib.STORAGE_KEY);
+  try { return lib.loadState(raw); } catch {
+    localStorage.setItem(CORRUPT_KEY, raw);
+    return lib.loadState(null);
+  }
+}
+
+let data = readStored();
 let apify = JSON.parse(localStorage.getItem(APIFY_KEY) || 'null') || { actors: [], refreshedAt: null, error: null };
 let state = null;
 
-function save() {
-  localStorage.setItem(lib.STORAGE_KEY, JSON.stringify(data));
+// Each change starts from what is saved now (another tab may have written since) and is
+// validated before it replaces anything; a Web Lock keeps two tabs from writing at once.
+function commit(fn) {
+  const next = readStored();
+  fn(next);
+  const checked = lib.loadState(JSON.parse(JSON.stringify(next)));
+  lib.summarize(checked, new Date(), localToday());
+  localStorage.setItem(lib.STORAGE_KEY, JSON.stringify(checked));
+  data = checked;
   if (data.entries.length) navigator.storage?.persist?.().catch(() => {});
 }
 
-function update(fn) {
-  fn(data);
-  save();
-  render();
+async function update(fn) {
+  try {
+    if (navigator.locks) await navigator.locks.request(lib.STORAGE_KEY, () => commit(fn));
+    else commit(fn);
+  } finally {
+    render();
+  }
 }
 
 function render() {
@@ -88,9 +107,9 @@ function draw() {
     : `${live} live, ${apify.actors.length - live} waiting · updated ${ago(apify.refreshedAt)}. Apify doesn't share earnings by API, so log payouts above.`;
   $('actors').innerHTML = apify.actors.length ? apify.actors.map((a) => {
     const price = a.price?.perThousandUsd != null ? `${usd(a.price.perThousandUsd)}/1k ${esc(a.price.unit || 'results')}` : (a.price ? 'priced' : 'no price yet');
-    return `<li><div class="main"><div class="title"><a href="${a.isPublic ? a.storeUrl : a.consoleUrl}" target="_blank" rel="noopener">${esc(a.title)}</a></div>
+    return `<li><div class="main"><div class="title"><a href="${esc(a.isPublic ? a.storeUrl : a.consoleUrl)}" target="_blank" rel="noopener">${esc(a.title)}</a></div>
       <div class="sub"><span class="pill ${a.isPublic ? 'live' : ''}">${a.isPublic ? 'Live' : 'Not public'}</span> ${price}</div></div>
-      <div class="right"><div class="num">${a.users30Days}</div><div class="sub">users 30d</div></div></li>`;
+      <div class="right"><div class="num">${Number(a.users30Days) || 0}</div><div class="sub">users 30d</div></div></li>`;
   }).join('') : '<li class="empty">No Actors loaded yet.</li>';
 
   const names = Object.fromEntries(streams.map((s) => [s.id, s.name]));
@@ -98,7 +117,7 @@ function draw() {
   $('entries').innerHTML = sorted.length ? sorted.map((e) => `<li><div class="main"><div class="title">${esc(names[e.streamId] || e.streamId)}</div>
       <div class="sub">${fmtDate(e.date)}${e.note ? ' · ' + esc(e.note) : ''}</div></div>
       <div class="right"><div class="num">${usd(e.amountUsd)}</div>
-      <div class="entry-actions"><button class="link small" data-toggle="${e.id}">${e.status === 'cashed' ? 'In Cash App ✓' : 'Mark cashed'}</button><button class="link danger small" data-del="${e.id}">Delete</button></div></div></li>`).join('')
+      <div class="entry-actions"><button class="link small" data-toggle="${esc(e.id)}">${e.status === 'cashed' ? 'In Cash App ✓' : 'Mark cashed'}</button><button class="link danger small" data-del="${esc(e.id)}">Delete</button></div></div></li>`).join('')
     : '<li class="empty">Nothing logged yet. Your first payout goes here.</li>';
 }
 
@@ -108,12 +127,12 @@ function showError(err) {
   el.hidden = false;
 }
 
-$('entry-form').addEventListener('submit', (ev) => {
+$('entry-form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   $('form-error').hidden = true;
   const f = new FormData(ev.target);
   try {
-    update((d) => lib.addEntry(d, {
+    await update((d) => lib.addEntry(d, {
       amountUsd: f.get('amountUsd'), streamId: f.get('streamId'), date: f.get('date') || undefined,
       note: f.get('note'), status: f.get('cashed') ? 'cashed' : 'earned',
     }, localToday()));
@@ -122,13 +141,13 @@ $('entry-form').addEventListener('submit', (ev) => {
   } catch (err) { showError(err); }
 });
 
-document.addEventListener('click', (ev) => {
+document.addEventListener('click', async (ev) => {
   const t = ev.target.closest('button');
   if (!t) return;
   try {
-    if (t.dataset.del && confirm('Delete this entry?')) update((d) => lib.removeEntry(d, t.dataset.del));
-    if (t.dataset.toggle) update((d) => lib.toggleCashed(d, t.dataset.toggle));
-    if (t.dataset.delStream && confirm('Remove this stream?')) update((d) => lib.removeStream(d, t.dataset.delStream));
+    if (t.dataset.del && confirm('Delete this entry?')) await update((d) => lib.removeEntry(d, t.dataset.del));
+    if (t.dataset.toggle) await update((d) => lib.toggleCashed(d, t.dataset.toggle));
+    if (t.dataset.delStream && confirm('Remove this stream?')) await update((d) => lib.removeStream(d, t.dataset.delStream));
   } catch (err) { alert(err.message); }
 });
 
@@ -145,17 +164,17 @@ $('edit-goal').addEventListener('click', () => {
   f.targetDate.value = data.goal.targetDate || '';
   $('goal-dialog').showModal();
 });
-$('goal-dialog').addEventListener('close', () => {
+$('goal-dialog').addEventListener('close', async () => {
   if ($('goal-dialog').returnValue !== 'save') return;
   const f = $('goal-form');
-  try { update((d) => lib.setGoal(d, { name: f.name.value, amountUsd: f.amountUsd.value, targetDate: f.targetDate.value || null })); } catch (err) { alert(err.message); }
+  try { await update((d) => lib.setGoal(d, { name: f.name.value, amountUsd: f.amountUsd.value, targetDate: f.targetDate.value || null })); } catch (err) { alert(err.message); }
 });
 
 $('add-stream').addEventListener('click', () => { $('stream-form').reset(); $('stream-dialog').showModal(); });
-$('stream-dialog').addEventListener('close', () => {
+$('stream-dialog').addEventListener('close', async () => {
   if ($('stream-dialog').returnValue !== 'save') return;
   const f = $('stream-form');
-  try { update((d) => lib.addStream(d, { name: f.name.value, payout: f.payout.value })); } catch (err) { alert(err.message); }
+  try { await update((d) => lib.addStream(d, { name: f.name.value, payout: f.payout.value })); } catch (err) { alert(err.message); }
 });
 
 $('export').addEventListener('click', () => {
@@ -174,11 +193,11 @@ $('import-file').addEventListener('change', async (ev) => {
   try {
     const next = lib.loadState(await file.text());
     if (!confirm(`Replace what's on this device with ${next.entries.length} entries from the backup?`)) return;
-    update((d) => Object.assign(d, next));
+    await update((d) => Object.assign(d, next));
   } catch (err) { alert(`Couldn't import: ${err.message}`); }
 });
 
-window.addEventListener('storage', (ev) => { if (ev.key === lib.STORAGE_KEY) { data = lib.loadState(ev.newValue); render(); } });
+window.addEventListener('storage', (ev) => { if (ev.key === lib.STORAGE_KEY) { data = readStored(); render(); } });
 
 $('entry-form').date.value = localToday();
 render();
