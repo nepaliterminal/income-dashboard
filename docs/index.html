@@ -63,9 +63,14 @@
       <h2>History</h2>
       <ul id="entries" class="list"></ul>
     </section>
+
+    <section class="card">
+      <div class="row-head"><h2>Backup</h2><div class="backup-actions"><button class="link" id="export">Export</button><button class="link" id="import">Import</button></div></div>
+      <p class="muted small">Your numbers are saved on this device only. Add Bankroll to your Home Screen so the phone keeps them, and export a backup now and then.</p>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+    </section>
   </main>
 
-  <footer class="muted small"><a href="https://app.devin.ai/sessions/ad99192adfc04b4e94f04c6742cb6b34" target="_blank" rel="noopener">Request changes</a></footer>
 
   <dialog id="goal-dialog">
     <form method="dialog" id="goal-form" class="form">
@@ -86,6 +91,6 @@
     </form>
   </dialog>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
