@@ -1,0 +1,57 @@
+:root {
+  --bg: #0f1512; --surface: #18201b; --text: #eef3ef; --text-muted: rgba(238,243,239,.6);
+  --border: rgba(255,255,255,.1); --accent: #3fd37a; --accent-fg: #06210f;
+  --primary-action: var(--accent); --primary-action-fg: var(--accent-fg);
+  --danger: #ff7a6b; --radius: 12px;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 var(--font); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+a { color: var(--accent); }
+.top { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; max-width: 640px; margin: 0 auto; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+.brand img { border-radius: 7px; }
+main { max-width: 640px; margin: 0 auto; padding: 0 12px 16px; display: grid; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+h1, h2 { margin: 0; font-size: 15px; font-weight: 600; }
+h1 { color: var(--text-muted); }
+.goal-head, .row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.big { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.of { font-size: 17px; font-weight: 500; color: var(--text-muted); letter-spacing: 0; }
+.bar { height: 12px; background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden; margin: 10px 0 14px; }
+#bar-fill { height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .4s; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.facts div { display: flex; flex-direction: column; }
+.label { font-size: 12px; color: var(--text-muted); }
+.num { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 17px; }
+.muted { color: var(--text-muted); }
+.small { font-size: 13px; }
+#pace { margin: 12px 0 0; }
+.form { display: grid; gap: 10px; }
+.form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-muted); }
+.form label.check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+input, select { font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+button { font: inherit; border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border); cursor: pointer; }
+.primary { background: var(--primary-action); color: var(--primary-action-fg); border-color: transparent; font-weight: 600; }
+.ghost { background: transparent; color: var(--text); }
+.link { background: none; border: none; padding: 0; color: var(--accent); font-size: 14px; text-decoration: none; }
+.error { color: var(--danger); margin: 8px 0 0; font-size: 14px; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.list li:first-child { border-top: none; }
+.list .main { min-width: 0; }
+.list .title { font-weight: 500; overflow-wrap: anywhere; }
+.list .sub { font-size: 12px; color: var(--text-muted); }
+.list .right { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-muted); }
+.pill.live { color: var(--accent); border-color: var(--accent); }
+.entry-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 2px; }
+.entry-actions button { font-size: 12px; }
+.danger { color: var(--danger); }
+footer { text-align: center; padding: 8px 0 24px; }
+dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); width: min(92vw, 420px); padding: 18px; }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+.actions { display: flex; justify-content: flex-end; gap: 8px; }
+.empty { color: var(--text-muted); font-size: 14px; padding: 6px 0; }

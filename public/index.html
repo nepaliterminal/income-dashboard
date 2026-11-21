@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1512">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bankroll">
+  <title>Bankroll</title>
+  <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="icon-192.png" alt="" width="28" height="28"><span>Bankroll</span></div>
+    <button id="refresh" class="ghost" aria-label="Refresh Apify stats">Refresh</button>
+  </header>
+
+  <main>
+    <section class="card goal" aria-labelledby="goal-name">
+      <div class="goal-head">
+        <h1 id="goal-name">Goal</h1>
+        <button class="link" id="edit-goal">Edit</button>
+      </div>
+      <div class="big"><span id="total">$0</span><span class="of"> of <span id="goal-amount">$0</span></span></div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="bar"><div id="bar-fill"></div></div>
+      <div class="facts">
+        <div><span class="label">To go</span><span id="remaining" class="num">$0</span></div>
+        <div><span class="label">Last 30 days</span><span id="last30" class="num">$0</span></div>
+        <div><span class="label">In Cash App</span><span id="cashed" class="num">$0</span></div>
+      </div>
+      <p id="pace" class="muted small"></p>
+    </section>
+
+    <section class="card">
+      <h2>Log money</h2>
+      <form id="entry-form" class="form">
+        <label>Amount ($)<input name="amountUsd" type="number" inputmode="decimal" step="0.01" required placeholder="12.50"></label>
+        <label>Stream<select name="streamId" id="stream-select"></select></label>
+        <label>Date<input name="date" type="date"></label>
+        <label>Note<input name="note" maxlength="140" placeholder="Apify payout, Nov"></label>
+        <label class="check"><input type="checkbox" name="cashed"> Already in Cash App</label>
+        <button type="submit" class="primary">Add</button>
+      </form>
+      <p id="form-error" class="error" hidden></p>
+    </section>
+
+    <section class="card">
+      <div class="row-head"><h2>Streams</h2><button class="link" id="add-stream">+ Add stream</button></div>
+      <ul id="streams" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <div class="row-head"><h2>Apify Actors</h2><a class="link" href="https://console.apify.com/actors/insights" target="_blank" rel="noopener">Earnings in Console</a></div>
+      <p class="muted small" id="apify-meta"></p>
+      <ul id="actors" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>History</h2>
+      <ul id="entries" class="list"></ul>
+    </section>
+  </main>
+
+  <footer class="muted small"><a href="https://app.devin.ai/sessions/ad99192adfc04b4e94f04c6742cb6b34" target="_blank" rel="noopener">Request changes</a></footer>
+
+  <dialog id="goal-dialog">
+    <form method="dialog" id="goal-form" class="form">
+      <h2>Edit goal</h2>
+      <label>What for<input name="name" maxlength="80" required></label>
+      <label>Amount ($)<input name="amountUsd" type="number" inputmode="decimal" step="0.01" min="1" required></label>
+      <label>Target date<input name="targetDate" type="date"></label>
+      <div class="actions"><button value="cancel" class="ghost" formnovalidate>Cancel</button><button value="save" class="primary">Save</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="stream-dialog">
+    <form method="dialog" id="stream-form" class="form">
+      <h2>New stream</h2>
+      <label>Name<input name="name" maxlength="60" required placeholder="Fiverr gigs"></label>
+      <label>How it pays out<input name="payout" maxlength="80" placeholder="PayPal → Cash App"></label>
+      <div class="actions"><button value="cancel" class="ghost" formnovalidate>Cancel</button><button value="save" class="primary">Add</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

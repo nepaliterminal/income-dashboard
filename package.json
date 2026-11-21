@@ -1,0 +1,12 @@
+{
+  "name": "income-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tracks every income stream and progress to the Xbox + GTA 6 goal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
